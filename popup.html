@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognitive Layer AI</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 320px;
+      min-height: 400px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .subtitle {
+      font-size: 13px;
+      opacity: 0.9;
+      margin-bottom: 20px;
+    }
+    
+    button {
+      width: 100%;
+      padding: 14px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: white;
+      color: #667eea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button:focus {
+      outline: 2px solid white;
+      outline-offset: 2px;
+    }
+    
+    .icon {
+      font-size: 18px;
+    }
+    
+    .info {
+      margin-top: 20px;
+      padding: 14px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    
+    .info-title {
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    
+    #status {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: left;
+      background: rgba(255,255,255,0.25);
+      display: none;
+      white-space: pre-line;
+      line-height: 1.5;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    #status.show {
+      display: block;
+    }
+    
+    #status.error {
+      background: rgba(255, 100, 100, 0.3);
+    }
+    
+    #status.success {
+      background: rgba(100, 255, 100, 0.3);
+    }
+    
+    .checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-top: 15px;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .checkbox-wrapper input {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>
+    <span class="icon">🧠</span>
+    <span>Cognitive Layer AI</span>
+  </h1>
+  <p class="subtitle">Screen reader accessibility tools</p>
+  
+  <button id="overview" aria-label="Generate AI page overview summary">
+    <span class="icon">📄</span>
+    <span>Generate AI Overview</span>
+  </button>
+  
+  <button id="cues" aria-label="Generate contextual cues for section headings">
+    <span class="icon">🗣️</span>
+    <span>Generate Section Cues</span>
+  </button>
+  
+  <button id="fixLabels" aria-label="Fix ambiguous links and buttons with descriptive labels">
+    <span class="icon">🔧</span>
+    <span>Fix Ambiguous Labels</span>
+  </button>
+  
+  <button id="checkAI" aria-label="Check if Chrome Built-in AI is properly configured" style="background: rgba(255,255,255,0.25); color: white; font-size: 13px; padding: 10px;">
+    <span class="icon">🔍</span>
+    <span>Check AI Status</span>
+  </button>
+  
+  <label class="checkbox-wrapper">
+    <input type="checkbox" id="keepOpen">
+    <span>Keep popup open</span>
+  </label>
+  
+  <div id="status" role="status" aria-live="polite"></div>
+  
+  <div class="info" role="contentinfo">
+    <div class="info-title">Requirements:</div>
+    Enable at chrome://flags:
+    <br>• #prompt-api-for-gemini-nano
+    <br>• #summarization-api-for-gemini-nano
+    <br>• #optimization-guide-on-device-model
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
