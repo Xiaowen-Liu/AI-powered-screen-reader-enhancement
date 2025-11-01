@@ -99,26 +99,62 @@ function getSectionContent(heading) {
   let content = "";
   let currentElement = heading.nextElementSibling;
   
+  // First, try to get content from sibling elements
   while (currentElement) {
     // Stop if we hit another heading of same or higher level
-    if (currentElement.tagName.match(/^H[1-6]$/)) {
+    if (currentElement.tagName && currentElement.tagName.match(/^H[1-6]$/)) {
       const currentLevel = parseInt(currentElement.tagName[1]);
       if (currentLevel <= headingLevel) {
         break;
       }
     }
     
-    // Collect text content
-    const text = currentElement.innerText || currentElement.textContent || "";
-    content += text + " ";
+    // Skip script, style, nav elements
+    if (currentElement.tagName && !['SCRIPT', 'STYLE', 'NAV', 'ASIDE'].includes(currentElement.tagName)) {
+      const text = currentElement.innerText || currentElement.textContent || "";
+      if (text.trim()) {
+        content += text + " ";
+      }
+    }
     
     // Limit content length
-    if (content.length > 2000) {
-      content = content.substring(0, 2000);
+    if (content.length > 3000) {
+      content = content.substring(0, 3000);
       break;
     }
     
     currentElement = currentElement.nextElementSibling;
+  }
+  
+  // If no content found from siblings, try to find content in parent's next elements
+  if (content.length < 50) {
+    const parent = heading.parentElement;
+    if (parent) {
+      let nextSibling = parent.nextElementSibling;
+      while (nextSibling && content.length < 3000) {
+        // Stop if we hit another section with same or higher level heading
+        const nextHeading = nextSibling.querySelector('h1, h2, h3, h4, h5, h6');
+        if (nextHeading) {
+          const nextLevel = parseInt(nextHeading.tagName[1]);
+          if (nextLevel <= headingLevel) {
+            break;
+          }
+        }
+        
+        const text = nextSibling.innerText || nextSibling.textContent || "";
+        if (text.trim() && !['SCRIPT', 'STYLE', 'NAV', 'ASIDE'].includes(nextSibling.tagName)) {
+          content += text + " ";
+        }
+        
+        nextSibling = nextSibling.nextElementSibling;
+      }
+    }
+  }
+  
+  // Last resort: get text from the entire parent element
+  if (content.length < 50 && heading.parentElement) {
+    const parentText = heading.parentElement.innerText || "";
+    content = parentText.substring(0, 3000);
   }
   
   return content.trim();
@@ -286,8 +322,10 @@ async function generateCues() {
         // Get section content
         const sectionContent = getSectionContent(heading);
         
-        if (!sectionContent || sectionContent.length < 50) {
-          console.log(`⏭️ Skipping ${headingText}: insufficient content`);
+        console.log(`📏 Section "${headingText}" content length: ${sectionContent.length} chars`);
+        
+        if (!sectionContent || sectionContent.length < 30) {
+          console.log(`⏭️ Skipping ${headingText}: insufficient content (${sectionContent.length} chars)`);
           continue;
         }
         
