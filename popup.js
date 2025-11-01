@@ -41,6 +41,18 @@ function getActionLabel(action) {
 }
 
 /**
+ * Check if content script is already loaded
+ */
+async function isContentScriptLoaded(tabId) {
+  try {
+    const response = await chrome.tabs.sendMessage(tabId, { action: "ping" });
+    return response?.status === "pong";
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
  * Sends a message to the active tab's content script
  */
 async function sendMessageToTab(action) {
@@ -61,7 +73,7 @@ async function sendMessageToTab(action) {
     }
     
     const tab = tabs[0];
-    console.log(`📍 Active tab: ${tab.id} - ${tab.url}`);
+    console.log(`🔍 Active tab: ${tab.id} - ${tab.url}`);
     
     if (!tab.id) {
       showStatus("❌ Invalid tab ID", "error");
@@ -79,18 +91,27 @@ async function sendMessageToTab(action) {
     // Show loading status
     showStatus(`⏳ ${getActionLabel(action)}...`, "loading");
     
-    // Try to inject content script first (in case it's not loaded)
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content.js']
-      });
-      console.log("✅ Content script injected/re-injected");
-      // Wait a bit for script to initialize
-      await new Promise(resolve => setTimeout(resolve, 500));
-    } catch (injectError) {
-      console.warn("Script injection warning:", injectError.message);
-      // Continue anyway, script might already be loaded
+    // Check if content script is already loaded
+    const isLoaded = await isContentScriptLoaded(tab.id);
+    
+    if (!isLoaded) {
+      // Only inject if not already loaded
+      try {
+        console.log("📥 Content script not found, injecting...");
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js']
+        });
+        console.log("✅ Content script injected");
+        // Wait for script to initialize
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (injectError) {
+        console.error("❌ Script injection failed:", injectError);
+        showStatus(`❌ Failed to inject script: ${injectError.message}`, "error");
+        return;
+      }
+    } else {
+      console.log("✅ Content script already loaded");
     }
     
     // Send message to content script

@@ -91,6 +91,39 @@ function getElementContext(element) {
   return context.trim();
 }
 
+/**
+ * Get content under a heading until next same-level heading
+ */
+function getSectionContent(heading) {
+  const headingLevel = parseInt(heading.tagName[1]); // Get number from H1, H2, etc.
+  let content = "";
+  let currentElement = heading.nextElementSibling;
+  
+  while (currentElement) {
+    // Stop if we hit another heading of same or higher level
+    if (currentElement.tagName.match(/^H[1-6]$/)) {
+      const currentLevel = parseInt(currentElement.tagName[1]);
+      if (currentLevel <= headingLevel) {
+        break;
+      }
+    }
+    
+    // Collect text content
+    const text = currentElement.innerText || currentElement.textContent || "";
+    content += text + " ";
+    
+    // Limit content length
+    if (content.length > 2000) {
+      content = content.substring(0, 2000);
+      break;
+    }
+    
+    currentElement = currentElement.nextElementSibling;
+  }
+  
+  return content.trim();
+}
+
 // ============================================================
 // AI OVERVIEW GENERATION
 // ============================================================
@@ -166,7 +199,7 @@ async function generateOverview() {
         line-height: 1.5;
       `;
       summaryBox.innerHTML = `
-        <b>🧠 Page Summary</b><br>
+        <h1 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">🧠 Page Summary</h1>
         <div>${summary}</div>
       `;
     
@@ -199,26 +232,26 @@ async function generateOverview() {
 }
 
 // ============================================================
-// COGNITIVE CUES FOR HEADINGS
+// COGNITIVE CUES FOR HEADINGS - NOW GENERATES SECTION SUMMARIES
 // ============================================================
 
 async function generateCues() {
-  console.log("🗣️ Generating Section Cues...");
+  console.log("🗣️ Generating Section Summaries...");
   
-  announce("Starting section cues generation. Please wait.");
+  announce("Starting section summaries generation. Please wait.");
   
   try {
-    // FIXED: Use window.LanguageModel instead of self.LanguageModel
-    if (!window.LanguageModel) {
-      throw new Error("Language Model API not found. Need Chrome 138+ with flags enabled.");
+    // Check for Summarizer API
+    if (!window.Summarizer) {
+      throw new Error("Summarizer API not found. Need Chrome 138+ with flags enabled.");
     }
     
     // Check availability
-    const availability = await window.LanguageModel.availability();
-    console.log("📊 Language Model availability:", availability);
+    const availability = await window.Summarizer.availability();
+    console.log("📊 Summarizer availability:", availability);
     
     if (availability === "no") {
-      throw new Error("Language Model API is unavailable. Download model at chrome://components");
+      throw new Error("Summarizer API is unavailable. Download model at chrome://components");
     }
     
     if (availability === "after-download") {
@@ -234,74 +267,94 @@ async function generateCues() {
       return;
     }
     
-    announce(`Generating contextual cues for ${headings.length} sections. This will take a moment.`);
+    announce(`Generating summaries for ${headings.length} sections. This will take a moment.`);
     
     let successCount = 0;
     
-    // Create session (reuse for all headings)
-    const session = await window.LanguageModel.create({
-      systemPrompt: "You are a cognitive accessibility assistant. Provide brief, clear descriptions in 12 words or less. No punctuation at the end.",
-      monitor(m) {
-        m.addEventListener('downloadprogress', (e) => {
-          const percent = Math.round(e.loaded / e.total * 100);
-          console.log(`📥 Model download: ${percent}%`);
-        });
-      }
-    });
-    
-    try {
-      for (const [index, heading] of Array.from(headings).entries()) {
-        // Delay between requests
-        await new Promise(resolve => setTimeout(resolve, 800));
+    for (const [index, heading] of Array.from(headings).entries()) {
+      // Delay between requests
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      try {
+        const headingText = heading.innerText.trim();
         
-        try {
-          const headingText = heading.innerText.trim();
-          
-          if (!headingText || headingText.length > 200) continue;
-          
-          // Skip if already has a cue
-          if (heading.hasAttribute("data-cognitive-cue")) continue;
-          
-          const prompt = `Describe what this section is about: "${headingText}"`;
-          const response = await session.prompt(prompt);
-          
-          // Clean response
-          let cue = response.trim().split("\n")[0];
-          cue = cue.replace(/[.!?]$/, ""); // Remove ending punctuation
-          cue = cue.substring(0, 100); // Limit length
-          
-          if (cue) {
-            // Mark heading as processed
-            heading.setAttribute("data-cognitive-cue", "true");
-            // Add aria-description for screen readers
-            heading.setAttribute("aria-description", cue);
-            
-            successCount++;
-            console.log(`✅ Cue ${index + 1}/${headings.length}: "${headingText}" → "${cue}"`);
-            
-            // Progress announcements every 5 headings
-            if ((index + 1) % 5 === 0) {
-              announce(`Processed ${index + 1} of ${headings.length} sections.`);
-            }
-          }
-          
-        } catch (error) {
-          console.error(`❌ Cue error for heading ${index + 1}:`, error);
+        if (!headingText || headingText.length > 200) continue;
+        
+        // Skip if already has a summary
+        if (heading.hasAttribute("data-cognitive-summary")) continue;
+        
+        // Get section content
+        const sectionContent = getSectionContent(heading);
+        
+        if (!sectionContent || sectionContent.length < 50) {
+          console.log(`⏭️ Skipping ${headingText}: insufficient content`);
+          continue;
         }
+        
+        announce(`Processing section ${index + 1} of ${headings.length}: ${headingText}`);
+        
+        // Create summarizer for this section
+        const summarizer = await window.Summarizer.create({
+          type: "tldr",
+          length: "short",
+          monitor(m) {
+            m.addEventListener('downloadprogress', (e) => {
+              const percent = Math.round(e.loaded / e.total * 100);
+              console.log(`📥 Model download: ${percent}%`);
+            });
+          }
+        });
+        
+        // Generate summary
+        const summary = await summarizer.summarize(sectionContent);
+        summarizer.destroy();
+        
+        if (summary && summary.trim()) {
+          // Mark heading as processed
+          heading.setAttribute("data-cognitive-summary", "true");
+          
+          // Create summary box
+          const summaryBox = document.createElement("div");
+          summaryBox.className = "cognitive-section-summary";
+          summaryBox.setAttribute("role", "note");
+          summaryBox.style.cssText = `
+            background: #f8f9fa;
+            border-left: 3px solid #5f6368;
+            padding: 10px 14px;
+            margin: 8px 0 16px 0;
+            border-radius: 6px;
+            font-family: system-ui, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #202124;
+          `;
+          summaryBox.innerHTML = `<em>📝 ${summary}</em>`;
+          
+          // Insert after heading
+          heading.insertAdjacentElement('afterend', summaryBox);
+          
+          successCount++;
+          console.log(`✅ Summary ${index + 1}/${headings.length}: "${headingText}"`);
+          
+          // Progress announcements every 5 headings
+          if ((index + 1) % 5 === 0) {
+            announce(`Processed ${index + 1} of ${headings.length} sections.`);
+          }
+        }
+        
+      } catch (error) {
+        console.error(`❌ Summary error for heading ${index + 1}:`, error);
       }
-    } finally {
-      // Clean up session
-      session.destroy();
     }
     
     // Final announcement
-    announce(`Cognitive cues complete. Generated descriptions for ${successCount} sections. Navigate to headings to hear them.`);
-    console.log(`✅ Generated ${successCount}/${headings.length} cues`);
+    announce(`Section summaries complete. Generated ${successCount} summaries. Navigate the page to see them.`);
+    console.log(`✅ Generated ${successCount}/${headings.length} summaries`);
     
   } catch (error) {
-    console.error("❌ Cues generation error:", error);
+    console.error("❌ Section summaries error:", error);
     const errorMsg = error.message || "Unknown error";
-    announce(`Section cues failed. Error: ${errorMsg}`);
+    announce(`Section summaries failed. Error: ${errorMsg}`);
   }
 }
 
@@ -437,6 +490,12 @@ Label (3-5 words):`;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("📨 Received message:", message);
+  
+  // Handle ping request to check if script is loaded
+  if (message.action === "ping") {
+    sendResponse({ status: "pong" });
+    return true;
+  }
   
   switch (message.action) {
     case "generateOverview":
