@@ -151,13 +151,43 @@ async function generateOverview() {
     if (summary && summary.trim()) {
       console.log("✅ AI Overview generated:", summary);
       
-      // Announce with delay to ensure screen reader picks it up
+      // 1️⃣ 创建一个可见 summary 区块
+      const summaryBox = document.createElement("div");
+      summaryBox.setAttribute("role", "status");
+      summaryBox.setAttribute("aria-live", "polite");
+      summaryBox.style.cssText = `
+        background: #f0f6ff;
+        border-left: 4px solid #1a73e8;
+        padding: 12px 16px;
+        margin: 16px auto;
+        border-radius: 8px;
+        font-family: system-ui, sans-serif;
+        max-width: 800px;
+        line-height: 1.5;
+      `;
+      summaryBox.innerHTML = `
+        <b>🧠 Page Summary</b><br>
+        <div>${summary}</div>
+      `;
+    
+      // 2️⃣ 插入网页顶部（第一个元素前）
+      const firstElement = document.body.firstChild;
+      if (firstElement) {
+        document.body.insertBefore(summaryBox, firstElement);
+      } else {
+        document.body.appendChild(summaryBox);
+      }
+    
+      // 3️⃣ announce 延迟播报（保持你原逻辑）
       setTimeout(() => {
         announce(`AI Overview complete. ${summary}`);
       }, 500);
+    
+      console.log("📄 Summary successfully injected into page.");
     } else {
       throw new Error("Summary generation returned empty result");
     }
+    
     
   } catch (error) {
     console.error("❌ Overview error:", error);
